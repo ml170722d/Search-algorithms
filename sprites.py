@@ -328,3 +328,81 @@ class Aki(Assistant):
                         break
 
         return path
+
+
+class Jocke(Assistant):
+    class BestNeighbours:
+        def __init__(self, tile, val):
+            self.t = tile
+            self.val = val
+
+        def cost(self):
+            return self.val
+
+        def tile(self):
+            return self.t
+
+    def __init__(self, row, col, file_name):
+        super().__init__(row, col, file_name)
+
+    def get_agent_path(self, game_map, goal):
+        goal_tile = game_map[goal[0]][goal[1]]
+        start_tile = game_map[self.row][self.col]
+
+        return self.bfs(game_map, start_tile, goal_tile)
+
+    def bfs(self, game_map, start, gaol):
+        queue = [start]
+        visited = {start: None}
+
+        while queue:
+            node = queue.pop(0)
+            if node == gaol:
+                path = []
+                while node is not None:
+                    path.append(node)
+                    node = visited[node]
+                path.reverse()
+                return path
+
+            opt, index = self.get_options(node, game_map)
+            avr_list = self.get_tile_weight(game_map, node, opt)
+
+            lst = [Jocke.BestNeighbours(opt[i], avr_list[i])
+                   for i in range(len(opt)) if opt[i] is not None]
+            opt = self.quicksort(lst, 0, index - 1)
+            opt = [bn.tile() for bn in opt]
+
+            self.sort_priorities(opt, 0, index - 1, node)
+
+            for tile in opt:
+                if tile not in visited:
+                    queue.append(tile)
+                    visited[tile] = node
+        pass
+
+    def get_tile_weight(self, game_map: list[Tile], curr: Tile, opt: list[Tile]):
+        avr_weight = []
+        for o in opt:
+            if o is not None:
+                avr_weight.append(self.get_weight(game_map, curr, o))
+            else:
+                avr_weight.append(None)
+
+        return avr_weight
+
+    def get_weight(self, game_map: list[Tile], curr: Tile, node: Tile):
+        tmp = []
+        if node.row > 0 and game_map[node.row - 1][node.col] != curr:
+            tmp.append(game_map[node.row - 1][node.col])
+
+        if node.col < len(game_map) - 1 and game_map[node.row][node.col + 1] != curr:
+            tmp.append(game_map[node.row][node.col + 1])
+
+        if node.row < len(game_map) - 1 and game_map[node.row + 1][node.col] != curr:
+            tmp.append(game_map[node.row + 1][node.col])
+
+        if node.col > 0 and game_map[node.row][node.col - 1] != curr:
+            tmp.append(game_map[node.row][node.col - 1])
+
+        return sum((tile.cost() for tile in tmp)) / len(tmp)
