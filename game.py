@@ -78,6 +78,13 @@ class Game:
         except Exception as e:
             raise e
 
+    def check_move(self, old_x, old_y, x, y):
+        if abs(old_x - x) + abs(old_y - y) != 1:
+            raise Exception(f'ERR: Path nodes {old_x, old_y} and {x, y} are not adjacent!')
+        if not (x in range(len(self.tile_map)) and y in range(len(self.tile_map[0]))):
+            raise Exception(f'ERR: Agent {x, y} is out of bounds! '
+                            f'{len(self.tile_map), len(self.tile_map[0])}')
+
     def run(self):
         # game loop - set self.playing = False to end the game
         path = self.agent.get_agent_path(self.tile_map, self.goal)
@@ -103,12 +110,7 @@ class Game:
                             raise EndGame()
                         old_x, old_y = x, y
                         x, y = tile.position()
-                        if abs(old_x - x) + abs(old_y - y) != 1:
-                            raise Exception('ERR: Path nodes are not adjacent!')
-                        if not (x in range(len(self.tile_map)) and y in range(len(self.tile_map[0]))):
-                            self.game_over = True
-                            raise Exception(f'ERR: Agent {x, y} is out of bounds! '
-                                            f'{len(self.tile_map), len(self.tile_map[0])}')
+                        self.check_move(old_x, old_y, x, y)
                         self.path_cost += tile.cost()
                     game_time += 1
                     if game_time == config.TILE_SIZE:
@@ -118,16 +120,19 @@ class Game:
                 self.events()
                 self.draw()
             except EndGame:
-                if len(orig_path):
-                    self.path_cost = sum([t.cost() for t in orig_path])
-                    goal_x, goal_y = orig_path.pop(-1).position()
-                    self.trails_sprites = pygame.sprite.Group()
-                    for num, tile in enumerate(orig_path):
-                        x, y = tile.position()
-                        self.trails_sprites.add(Trail(x, y, num + 1))
-                    self.agent.place_to(goal_x, goal_y)
                 self.game_over = True
                 self.playing = False
+                if len(orig_path):
+                    self.path_cost = sum([t.cost() for t in orig_path])
+                    goal_x, goal_y = orig_path[-1].position()
+                    self.trails_sprites = pygame.sprite.Group()
+                    for num, tile in enumerate(orig_path):
+                        old_x, old_y = x, y
+                        x, y = tile.position()
+                        if num:
+                            self.check_move(old_x, old_y, x, y)
+                        self.trails_sprites.add(Trail(x, y, num + 1))
+                    self.agent.place_to(goal_x, goal_y)
             except Exception as e:
                 self.game_over = True
                 raise e
