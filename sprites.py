@@ -170,12 +170,12 @@ class Assistant(Agent):
     def __init__(self, row, col, file_name):
         super().__init__(row, col, file_name)
 
-    def get_sorted_options(self, node, game_map):
+    def get_options(self, node, game_map):
         """
 
         :param node: current position of agent
         :param game_map: game map
-        :return: sorted list of options by tiles and index of last non 'None' element
+        :return: list of options and index of first None element
         """
         options = [None] * 4
 
@@ -206,14 +206,11 @@ class Assistant(Agent):
                 options[cnt] = options[i]
                 cnt += 1
 
-        high = cnt - 1
+        high = cnt
 
         while cnt < len(options):
             options[cnt] = None
             cnt += 1
-
-        # sort direction weight
-        self.quicksort(options, 0, high)
 
         return options, high
 
@@ -252,6 +249,7 @@ class Assistant(Agent):
 
             self.quicksort(arr, low, pi - 1)
             self.quicksort(arr, pi + 1, high)
+            return arr
 
     def sort_priorities(self, arr: list[Tile], low, high, node):
         """
@@ -271,13 +269,14 @@ class Assistant(Agent):
 
         for p in range(low, i - 1):
             for q in range(p + 1, i):
-                if self.priority(arr[p], node) < self.priority(arr[q], node):
+                if Assistant.priority(arr[p], node) < Assistant.priority(arr[q], node):
                     arr[p], arr[q] = arr[q], arr[p]
 
         self.sort_priorities(arr, i, high, node)
         return
 
-    def priority(self, tile: Tile, node: Tile) -> int:
+    @staticmethod
+    def priority(tile: Tile, node: Tile) -> int:
         """
 
         :param tile: tile to check
@@ -315,9 +314,11 @@ class Aki(Assistant):
             if node == goal:
                 return path
             else:
-                opt, index = self.get_sorted_options(node, game_map)
+                opt, index = self.get_options(node, game_map)
+                # sort direction weight
+                opt = self.quicksort(opt, 0, index - 1)
 
-                self.sort_priorities(opt, 0, index, node)
+                self.sort_priorities(opt, 0, index - 1, node)
 
                 for neighbour in opt:
                     tmp = self.dfs(visited, game_map, neighbour, goal)
