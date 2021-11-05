@@ -160,3 +160,170 @@ class Trail(BaseSprite):
         text = config.GAME_FONT.render(f'{self.num}', True, config.WHITE)
         text_rect = text.get_rect(center=self.rect.center)
         screen.blit(text, text_rect)
+
+
+# Custom util classes
+
+# Custom agents
+
+class Assistant(Agent):
+    def __init__(self, row, col, file_name):
+        super().__init__(row, col, file_name)
+
+    def get_sorted_options(self, node, game_map):
+        """
+
+        :param node: current position of agent
+        :param game_map: game map
+        :return: sorted list of options by tiles and index of last non 'None' element
+        """
+        options = [None] * 4
+
+        row, col = node.position()
+
+        # go north
+        if row > 0:
+            options[0] = (game_map[row - 1][col])
+
+        # go east
+        if col < len(game_map[row]) - 1:
+            options[1] = (game_map[row][col + 1])
+
+        # go south
+        if row < len(game_map) - 1:
+            options[2] = (game_map[row + 1][col])
+
+        # go west
+        if col > 0:
+            options[3] = (game_map[row][col - 1])
+
+        # move all None values to end of array
+        # and prepare for quicksort
+        cnt = 0
+        high = len(options) - 1
+        for i in range(len(options)):
+            if options[i] is not None:
+                options[cnt] = options[i]
+                cnt += 1
+
+        high = cnt - 1
+
+        while cnt < len(options):
+            options[cnt] = None
+            cnt += 1
+
+        # sort direction weight
+        self.quicksort(options, 0, high)
+
+        return options, high
+
+    def partition(self, arr, low, high):
+        """
+
+        :param arr: array that is used to find pivot point
+        :param low: index of fist element
+        :param high: index of last element
+        :return: pivot index
+        """
+        i = (low - 1)
+        pivot = arr[high].cost()
+
+        for j in range(low, high):
+            if arr[j].cost() <= pivot:
+                i += 1
+                arr[i], arr[j] = arr[j], arr[i]
+
+        arr[i + 1], arr[high] = arr[high], arr[i + 1]
+        return i + 1
+
+    def quicksort(self, arr, low, high):
+        """
+
+        :param arr: array that is being sorted (by tile)
+        :param low: index of fist element
+        :param high: index of last element
+        :return: sorted array
+        """
+        if len(arr) == 1:
+            return arr
+
+        if low < high:
+            pi = self.partition(arr, low, high)
+
+            self.quicksort(arr, low, pi - 1)
+            self.quicksort(arr, pi + 1, high)
+
+    def sort_priorities(self, arr: list[Tile], low, high, node):
+        """
+
+        :param arr: array that is being sorted (by direction)
+        :param low: index of fist element
+        :param high: index of last element
+        :param node: current location of agent
+        :return: sorted array
+        """
+        i = low
+        while i <= high and arr[low].cost() == arr[i].cost():
+            i += 1
+
+        if i == low:
+            return
+
+        for p in range(low, i - 1):
+            for q in range(p + 1, i):
+                if self.priority(arr[p], node) < self.priority(arr[q], node):
+                    arr[p], arr[q] = arr[q], arr[p]
+
+        self.sort_priorities(arr, i, high, node)
+        return
+
+    def priority(self, tile: Tile, node: Tile) -> int:
+        """
+
+        :param tile: tile to check
+        :param node: current tile of agent
+        :return: priority
+        """
+        if node.row - 1 == tile.row:
+            return 3  # north
+        elif node.col + 1 == tile.col:
+            return 2  # east
+        elif node.row + 1 == tile.row:
+            return 1  # south
+        elif node.col - 1 == tile.col:
+            return 0  # west
+        else:
+            raise Exception('Invalid tile provided')
+
+
+class Aki(Assistant):
+    def __init__(self, row, col, file_name):
+        super().__init__(row, col, file_name)
+
+    def get_agent_path(self, game_map, goal):
+        visited = set()
+        goal_tile = game_map[goal[0]][goal[1]]
+        start_tile = game_map[self.row][self.col]
+
+        return self.dfs(visited, game_map, start_tile, goal_tile)
+
+    def dfs(self, visited, game_map, node, goal):
+        path = []
+        if node not in visited and node is not None:
+            visited.add(node)
+            path.append(node)
+            if node == goal:
+                return path
+            else:
+                opt, index = self.get_sorted_options(node, game_map)
+
+                self.sort_priorities(opt, 0, index, node)
+
+                for neighbour in opt:
+                    tmp = self.dfs(visited, game_map, neighbour, goal)
+                    if (len(tmp) > 0) and (goal in tmp):
+                        for i in tmp:
+                            path.append(i)
+                        break
+
+        return path
