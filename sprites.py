@@ -463,3 +463,39 @@ class Draza(Jocke):
 
         self.sort_by_priorities(arr, i, high, visited)
         return
+
+
+class Bole(Draza):
+    def __init__(self, row, col, file_name):
+        super().__init__(row, col, file_name)
+
+    def get_agent_path(self, game_map, goal):
+        goal_tile = game_map[goal[0]][goal[1]]
+        start_tile = game_map[self.row][self.col]
+
+        return self.a_star(game_map, start_tile, goal_tile)
+
+    def a_star(self, game_map, start, goal):
+        queue = [TileData(start, 0)]
+        visited = {start: None}
+
+        while queue:
+            node = queue.pop(0)
+            if node.tile() == goal:
+                return self.get_path_to_node(visited, node.tile())
+
+            opt, index = self.get_options(node.tile(), game_map)
+            avr_list = self.get_tile_weight(game_map, node.tile(), opt)
+
+            lst = [TileData(opt[i], opt[i].cost() + node.cost() + avr_list[i])
+                   for i in range(len(opt)) if opt[i] is not None]
+
+            for td in lst:
+                if td.tile() not in visited:
+                    queue.append(td)
+                    visited[td.tile()] = node.tile()
+
+            queue = self.quicksort(queue, 0, len(queue) - 1)
+            self.sort_by_priorities(queue, 0, len(queue) - 1, visited)
+
+        pass
