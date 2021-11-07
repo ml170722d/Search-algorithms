@@ -164,9 +164,7 @@ class Trail(BaseSprite):
 
 # Custom util classes
 
-# Custom agents
-
-class Assistant(Agent):
+class Professor(Agent):
     def __init__(self, row, col, file_name):
         super().__init__(row, col, file_name)
 
@@ -249,9 +247,10 @@ class Assistant(Agent):
 
             self.quicksort(arr, low, pi - 1)
             self.quicksort(arr, pi + 1, high)
-            return arr
 
-    def sort_priorities(self, arr: list[Tile], low, high, node):
+        return arr
+
+    def sort_by_priorities(self, arr: list[Tile], low, high, node):
         """
 
         :param arr: array that is being sorted (by direction)
@@ -269,10 +268,10 @@ class Assistant(Agent):
 
         for p in range(low, i - 1):
             for q in range(p + 1, i):
-                if Assistant.priority(arr[p], node) < Assistant.priority(arr[q], node):
+                if self.priority(arr[p], node) < self.priority(arr[q], node):
                     arr[p], arr[q] = arr[q], arr[p]
 
-        self.sort_priorities(arr, i, high, node)
+        self.sort_by_priorities(arr, i, high, node)
         return
 
     @staticmethod
@@ -295,7 +294,21 @@ class Assistant(Agent):
             raise Exception('Invalid tile provided')
 
 
-class Aki(Assistant):
+class TileData:
+    def __init__(self, tile, val):
+        self.t = tile
+        self.val = val
+
+    def cost(self):
+        return self.val
+
+    def tile(self):
+        return self.t
+
+
+# Custom agents
+
+class Aki(Professor):
     def __init__(self, row, col, file_name):
         super().__init__(row, col, file_name)
 
@@ -318,7 +331,7 @@ class Aki(Assistant):
                 # sort direction weight
                 opt = self.quicksort(opt, 0, index - 1)
 
-                self.sort_priorities(opt, 0, index - 1, node)
+                self.sort_by_priorities(opt, 0, index - 1, node)
 
                 for neighbour in opt:
                     tmp = self.dfs(visited, game_map, neighbour, goal)
@@ -330,18 +343,7 @@ class Aki(Assistant):
         return path
 
 
-class Jocke(Assistant):
-    class BestNeighbours:
-        def __init__(self, tile, val):
-            self.t = tile
-            self.val = val
-
-        def cost(self):
-            return self.val
-
-        def tile(self):
-            return self.t
-
+class Jocke(Professor):
     def __init__(self, row, col, file_name):
         super().__init__(row, col, file_name)
 
@@ -351,35 +353,38 @@ class Jocke(Assistant):
 
         return self.bfs(game_map, start_tile, goal_tile)
 
-    def bfs(self, game_map, start, gaol):
+    def bfs(self, game_map, start, goal):
         queue = [start]
         visited = {start: None}
 
         while queue:
             node = queue.pop(0)
-            if node == gaol:
-                path = []
-                while node is not None:
-                    path.append(node)
-                    node = visited[node]
-                path.reverse()
-                return path
+            if node == goal:
+                return self.get_path_to_node(visited, node)
 
             opt, index = self.get_options(node, game_map)
             avr_list = self.get_tile_weight(game_map, node, opt)
 
-            lst = [Jocke.BestNeighbours(opt[i], avr_list[i])
+            lst = [TileData(opt[i], avr_list[i])
                    for i in range(len(opt)) if opt[i] is not None]
-            opt = self.quicksort(lst, 0, index - 1)
+            opt = self.quicksort(lst, 0, len(lst) - 1)
             opt = [bn.tile() for bn in opt]
 
-            self.sort_priorities(opt, 0, index - 1, node)
+            self.sort_by_priorities(opt, 0, index - 1, node)
 
             for tile in opt:
                 if tile not in visited:
                     queue.append(tile)
                     visited[tile] = node
         pass
+
+    def get_path_to_node(self, visited, node):
+        path = []
+        while node is not None:
+            path.append(node)
+            node = visited[node]
+        path.reverse()
+        return path
 
     def get_tile_weight(self, game_map: list[Tile], curr: Tile, opt: list[Tile]):
         avr_weight = []
